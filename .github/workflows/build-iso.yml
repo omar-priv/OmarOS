@@ -43,6 +43,7 @@ jobs:
             file \
             qemu-system-x86 \
             qemu-utils \
+            python3 \
             coreutils \
             grep
 
