@@ -18,14 +18,22 @@ lb config \
     --distribution trixie \
     --architectures amd64 \
     --binary-image iso-hybrid \
+    --initsystem systemd \
     --archive-areas "main contrib non-free non-free-firmware" \
-    --bootappend-live "boot=live components username=omar hostname=omaros locales=ar_JO.UTF-8,en_US.UTF-8 keyboard-layouts=ara,us keyboard-options=grp:alt_shift_toggle"
+    --iso-volume "OMAROS13" \
+    --iso-application "OmarOS Live" \
+    --iso-publisher "OmarOS Project" \
+    --iso-preparer "OmarOS Debian Live Build" \
+    --bootappend-live "boot=live components username=omar hostname=omaros locales=ar_JO.UTF-8,en_US.UTF-8 keyboard-layouts=ara,us keyboard-options=grp:alt_shift_toggle console=tty0 console=ttyS0,115200n8 systemd.show_status=true systemd.log_target=console"
 
 lb build
 
-if [ -f live-image-amd64.hybrid.iso ]; then
-    echo "Build complete: $ROOT_DIR/live-image-amd64.hybrid.iso"
+ISO="$ROOT_DIR/live-image-amd64.hybrid.iso"
+if [ -s "$ISO" ]; then
+    echo "Build complete: $ISO"
+    ls -lh "$ISO"
+    sha256sum "$ISO"
 else
-    echo "Build command finished, but the expected ISO was not found." >&2
+    echo "Build command finished, but the expected ISO was not found or is empty." >&2
     exit 1
 fi

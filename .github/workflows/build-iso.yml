@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Debian Live ISO
+    name: Build, then boot-test the live ISO
     runs-on: ubuntu-latest
     timeout-minutes: 120
     container:
@@ -19,9 +19,11 @@ jobs:
       options: --privileged
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - name: Install Debian Live build tools
+      - name: Install Debian Live and QEMU build tools
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -38,7 +40,11 @@ jobs:
             rsync \
             ca-certificates \
             curl \
-            file
+            file \
+            qemu-system-x86 \
+            qemu-utils \
+            coreutils \
+            grep
 
       - name: Validate project files
         run: bash scripts/validate-project.sh
@@ -46,10 +52,25 @@ jobs:
       - name: Build ISO
         run: bash scripts/build-iso.sh
 
-      - name: Upload live ISO
-        uses: actions/upload-artifact@v4
+      - name: Verify required packages in the live filesystem manifest
+        run: |
+          manifest="binary/live/filesystem.packages"
+          test -s "$manifest"
+          for package in zram-tools xfce4-session firmware-atheros libreoffice-writer python3 nodejs wine64; do
+            if ! awk -v wanted="$package" '$1 == wanted { found=1 } END { exit !found }' "$manifest"; then
+              echo "Required package missing from live filesystem manifest: $package" >&2
+              exit 1
+            fi
+          done
+
+      - name: QEMU diskless boot smoke test
+        run: bash scripts/qemu-smoke.sh live-image-amd64.hybrid.iso
+
+      - name: Upload tested live ISO
+        uses: actions/upload-artifact@v7
         with:
           name: OmarOS-live-ISO
           path: live-image-amd64.hybrid.iso
           if-no-files-found: error
+          compression-level: 0
           retention-days: 7

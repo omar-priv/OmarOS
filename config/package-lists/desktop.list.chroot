@@ -52,6 +52,18 @@ locales
 keyboard-configuration
 console-setup
 
+# System health and performance diagnostics
+zram-tools
+sysstat
+iotop-c
+smartmontools
+strace
+inxi
+lshw
+pciutils
+usbutils
+lm-sensors
+
 # Essential system utilities
 sudo
 polkitd
