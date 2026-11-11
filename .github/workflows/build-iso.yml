@@ -1,0 +1,55 @@
+name: Build OmarOS ISO
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Debian Live ISO
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    container:
+      image: debian:trixie-slim
+      options: --privileged
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Debian Live build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            live-build \
+            debootstrap \
+            xorriso \
+            squashfs-tools \
+            isolinux \
+            syslinux-common \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
+            dosfstools \
+            mtools \
+            rsync \
+            ca-certificates \
+            curl \
+            file
+
+      - name: Validate project files
+        run: bash scripts/validate-project.sh
+
+      - name: Build ISO
+        run: bash scripts/build-iso.sh
+
+      - name: Upload live ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: OmarOS-live-ISO
+          path: live-image-amd64.hybrid.iso
+          if-no-files-found: error
+          retention-days: 7

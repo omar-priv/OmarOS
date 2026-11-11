@@ -1,0 +1,10 @@
+# Debian Live build output
+auto/
+binary/
+cache/
+chroot/
+*.iso
+*.img
+*.log
+*.build
+*.buildlog

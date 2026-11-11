@@ -1,0 +1,5 @@
+# OmarOS: fast compressed swap in RAM.
+# 50% is a maximum capacity, not a preallocated reservation.
+ALGO=lz4
+PERCENT=50
+PRIORITY=100
