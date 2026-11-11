@@ -45,13 +45,29 @@ jobs:
             qemu-utils \
             python3 \
             coreutils \
-            grep
+            grep \
+            tesseract-ocr \
+            libarchive-tools
 
       - name: Validate project files
         run: bash scripts/validate-project.sh
 
       - name: Build ISO
         run: bash scripts/build-iso.sh
+
+      - name: Inspect ISO boot configuration for diagnostics
+        run: |
+          iso="live-image-amd64.hybrid.iso"
+          echo "Boot-related configuration files inside the ISO:"
+          bsdtar -tf "$iso" | grep -Ei '(^|/)(isolinux|syslinux|grub).*\.cfg$|\.cfg$' | head -n 30 > /tmp/omaros-boot-config-paths.txt || true
+          if [ ! -s /tmp/omaros-boot-config-paths.txt ]; then
+            echo "No boot configuration files matched the diagnostic filter."
+          else
+            while IFS= read -r path; do
+              echo "--- ISO file: $path ---"
+              bsdtar -xOf "$iso" "$path" 2>/dev/null | sed -n '1,120p' || true
+            done < /tmp/omaros-boot-config-paths.txt
+          fi
 
       - name: Verify required packages in the live filesystem manifest
         run: |
@@ -66,6 +82,16 @@ jobs:
 
       - name: QEMU diskless boot smoke test
         run: bash scripts/qemu-smoke.sh live-image-amd64.hybrid.iso
+
+      - name: Upload QEMU diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: OmarOS-QEMU-diagnostics
+          path: qemu-diagnostics/
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 7
 
       - name: Upload tested live ISO
         uses: actions/upload-artifact@v7
