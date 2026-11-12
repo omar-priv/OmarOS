@@ -111,6 +111,9 @@ if ! kill -0 "$QEMU_PID" 2>/dev/null; then
 fi
 
 python3 "$ROOT_DIR/scripts/qemu-screen-probe.py" capture "$QMP_SOCKET" "$SCREEN_EARLY"
+
+echo "Selecting the default Live system entry from the GRUB menu."
+python3 "$ROOT_DIR/scripts/qemu-screen-probe.py" key "$QMP_SOCKET" ret
 sleep 140
 
 if ! kill -0 "$QEMU_PID" 2>/dev/null; then

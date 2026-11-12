@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture and compare a QEMU VGA framebuffer through the QMP protocol."""
+"""Capture, control, and compare a QEMU VGA framebuffer through QMP."""
 
 from __future__ import annotations
 
@@ -35,30 +35,48 @@ def qmp_command(sock: socket.socket, command: str, arguments: dict | None = None
             raise RuntimeError(f"QMP {command} failed: {response['error']}")
 
 
-def capture(socket_path: str, output_path: str) -> None:
+def connect_qmp(socket_path: str) -> socket.socket:
     deadline = time.monotonic() + 30
     last_error: Exception | None = None
     while time.monotonic() < deadline:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-                sock.settimeout(10)
-                sock.connect(socket_path)
-                greeting = receive_json(sock)
-                if "QMP" not in greeting:
-                    raise RuntimeError("QMP greeting was not received")
-                qmp_command(sock, "qmp_capabilities")
-                status = qmp_command(sock, "query-status")
-                if status.get("status") not in {"running", "paused"}:
-                    raise RuntimeError(f"Unexpected QEMU status: {status}")
-                qmp_command(sock, "screendump", {"filename": output_path})
-            if not Path(output_path).is_file() or Path(output_path).stat().st_size < 128:
-                raise RuntimeError("QEMU produced an empty VGA screenshot")
-            print(f"Captured VGA framebuffer: {output_path}")
-            return
+            sock.settimeout(10)
+            sock.connect(socket_path)
+            greeting = receive_json(sock)
+            if "QMP" not in greeting:
+                raise RuntimeError("QMP greeting was not received")
+            qmp_command(sock, "qmp_capabilities")
+            return sock
         except (OSError, RuntimeError, json.JSONDecodeError) as exc:
             last_error = exc
+            sock.close()
             time.sleep(1)
-    raise RuntimeError(f"Could not capture QEMU VGA framebuffer: {last_error}")
+    raise RuntimeError(f"Could not connect to QEMU QMP: {last_error}")
+
+
+def capture(socket_path: str, output_path: str) -> None:
+    with connect_qmp(socket_path) as sock:
+        status = qmp_command(sock, "query-status")
+        if status.get("status") not in {"running", "paused"}:
+            raise RuntimeError(f"Unexpected QEMU status: {status}")
+        qmp_command(sock, "screendump", {"filename": output_path})
+    if not Path(output_path).is_file() or Path(output_path).stat().st_size < 128:
+        raise RuntimeError("QEMU produced an empty VGA screenshot")
+    print(f"Captured VGA framebuffer: {output_path}")
+
+
+def send_key(socket_path: str, key: str) -> None:
+    with connect_qmp(socket_path) as sock:
+        qmp_command(
+            sock,
+            "send-key",
+            {
+                "keys": [{"type": "qcode", "data": key}],
+                "hold-time": 150,
+            },
+        )
+    print(f"Sent QEMU keyboard key through QMP: {key}")
 
 
 def ppm_pixels(path: str) -> tuple[int, int, bytes]:
@@ -133,11 +151,14 @@ def compare(first: str, second: str) -> None:
 def main() -> None:
     if len(sys.argv) == 4 and sys.argv[1] == "capture":
         capture(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) == 4 and sys.argv[1] == "key":
+        send_key(sys.argv[2], sys.argv[3])
     elif len(sys.argv) == 4 and sys.argv[1] == "compare":
         compare(sys.argv[2], sys.argv[3])
     else:
         raise SystemExit(
             "Usage: qemu-screen-probe.py capture QMP_SOCKET OUTPUT.ppm\n"
+            "   or: qemu-screen-probe.py key QMP_SOCKET QCODE\n"
             "   or: qemu-screen-probe.py compare FIRST.ppm SECOND.ppm"
         )
 

@@ -27,7 +27,9 @@ Run:
 
 The test starts a 64-bit x86 QEMU guest with 2 GB RAM and two virtual CPUs. Only the ISO is attached. No host disk, partition, or block device is passed to QEMU.
 
-The test captures the serial console and waits for the graphical target or display manager to start. It is a basic boot smoke test, not a complete desktop or hardware certification.
+The CI test captures the initial VGA screen, sends an Enter key through QMP to select the default Live system entry in GRUB, then waits for serial or graphical boot evidence. This explicit keypress is required because the non-interactive QEMU guest may remain at the GRUB menu instead of booting automatically.
+
+This is a basic diskless boot smoke test, not a complete desktop or hardware certification.
 
 ### 4. Physical Acer tests
 
